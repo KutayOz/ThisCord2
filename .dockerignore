@@ -1,0 +1,15 @@
+**/bin/
+**/obj/
+**/.vs/
+**/.idea/
+**/.vscode/
+**/*.user
+**/*.suo
+**/*.cache
+**/*.log
+
+thiscord-client/node_modules/
+thiscord-client/dist/
+
+.git/
+.DS_Store

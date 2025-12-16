@@ -1,0 +1,86 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: thiscord-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: thiscord
+      POSTGRES_USER: ${DB_USER:-thiscord}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - thiscord-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-thiscord} -d thiscord"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: src/ThisCord.API/Dockerfile
+    container_name: thiscord-api
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__Database: Host=db;Port=5432;Database=thiscord;Username=${DB_USER:-thiscord};Password=${DB_PASSWORD}
+      Jwt__Key: ${JWT_SECRET_KEY:?JWT_SECRET_KEY is required}
+      Jwt__Issuer: ThisCord
+      Jwt__Audience: ThisCord.Client
+      Jwt__ExpiryMinutes: 60
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - uploads_data:/app/uploads
+    networks:
+      - thiscord-network
+
+  client:
+    build:
+      context: ./thiscord-client
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ""
+    container_name: thiscord-client
+    restart: unless-stopped
+    depends_on:
+      - api
+    networks:
+      - thiscord-network
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: thiscord-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./certbot/www:/var/www/certbot:ro
+      - ./certbot/conf:/etc/letsencrypt:ro
+    depends_on:
+      - client
+      - api
+    networks:
+      - thiscord-network
+
+  certbot:
+    image: certbot/certbot
+    container_name: thiscord-certbot
+    volumes:
+      - ./certbot/www:/var/www/certbot
+      - ./certbot/conf:/etc/letsencrypt
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+
+networks:
+  thiscord-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  uploads_data:

@@ -1,0 +1,27 @@
+# Environment files
+.env
+*.local
+
+# SSL certificates
+certbot/
+
+# Build outputs
+**/bin/
+**/obj/
+**/node_modules/
+**/dist/
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Uploads (user data)
+uploads/
